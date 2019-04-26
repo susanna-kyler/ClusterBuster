@@ -1,0 +1,73 @@
+<configuration>
+
+    <property>
+        <name>mapreduce.cluster.temp.dir</name>
+        <value>/tmp/${user.name}-tmp</value>
+        <final>true</final>
+    </property>
+
+    <property>
+        <name>mapreduce.cluster.local.dir</name>
+        <value>${hadoop.tmp.dir}/dfs/data</value>
+        <final>true</final>
+    </property>
+
+    <property>
+        <name>mapreduce.framework.name</name>
+        <value>local</value>
+        <description>The runtime framework for executing MapReduce jobs.
+            Can be one of local, classic or yarn.
+        </description>
+    </property>
+<!--
+    <property>
+        <name>mapreduce.map.java.opts</name>
+        <value>-Xmx384M</value>
+    </property>
+
+    <property>
+        <name>mapreduce.reduce.java.opts</name>
+        <value>-Xmx768M</value>
+    </property>
+-->
+    <property>
+        <name>mapreduce.map.memory.mb</name>
+        <value>8128</value>
+    </property>
+
+    <property>
+        <name>mapreduce.reduce.memory.mb</name>
+        <value>8128</value>
+    </property>
+
+    <property>
+        <name>mapreduce.shuffle.port</name>
+        <value>49128</value>
+    </property>
+
+    <property>
+        <name>mapreduce.task.io.sort.mb</name>
+        <value>512</value>
+    </property>
+
+    <property>
+        <name>mapreduce.task.io.sort.factor</name>
+        <value>100</value>
+    </property>
+    <property> 
+        <name>mapreduce.application.classpath</name>
+        <value>$HADOOP_HOME/share/hadoop/mapreduce/*,$HADOOP_HOME/share/hadoop/mapreduce/lib/*,$HADOOP_HOME/share/hadoop/common/*,$HADOOP_HOME/share/hadoop/common/lib/*,$HADOOP_HOME/share/hadoop/yarn/*,$HADOOP_HOME/share/hadoop/yarn/lib/*,$HADOOP_HOME/share/hadoop/hdfs/*,$HADOOP_HOME/share/hadoop/hdfs/lib/*</value>
+    </property>
+    <property>
+        <name>yarn.app.mapreduce.am.env</name>
+        <value>HADOOP_MAPRED_HOME=${HADOOP_HOME}</value>
+    </property>
+    <property>
+        <name>mapreduce.map.env</name>
+        <value>HADOOP_MAPRED_HOME=${HADOOP_HOME}</value>
+    </property>
+    <property>
+        <name>mapreduce.reduce.env</name>
+        <value>HADOOP_MAPRED_HOME=${HADOOP_HOME}</value>
+    </property>
+</configuration>
