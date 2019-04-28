@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="c7e0c60e-de2c-43bd-8e2d-591b4b589ec0" name="Default" comment="" />
+    <list default="true" id="c7e0c60e-de2c-43bd-8e2d-591b4b589ec0" name="Default" comment="">
+      <change type="DELETED" beforePath="$PROJECT_DIR$/.nfs0000000001438a2100003c81" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/.~lock.constituents_csv#" afterPath="" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
+    </list>
     <ignored path="$PROJECT_DIR$/out/" />
     <ignored path="$PROJECT_DIR$/target/" />
     <ignored path="$PROJECT_DIR$/project/project/target/" />
@@ -292,12 +296,12 @@
       <option name="presentableId" value="Default" />
       <updated>1556477183948</updated>
       <workItem from="1556477186917" duration="16002000" />
-      <workItem from="1556493590672" duration="66000" />
+      <workItem from="1556493590672" duration="189000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="16068000" />
+    <option name="totallyTimeSpent" value="16191000" />
   </component>
   <component name="ToolWindowManager">
     <frame x="43" y="46" width="1347" height="1111" extended-state="0" />
