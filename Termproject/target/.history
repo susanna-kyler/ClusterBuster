@@ -1,0 +1,15 @@
+show compile:discoveredMainClasses
+compile
+package
+clena
+clean
+compile
+package
+clean
+compile
+package
+clean
+compile
+package
+show compile:discoveredMainClasses
+clean
