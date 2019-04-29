@@ -13,3 +13,12 @@ compile
 package
 show compile:discoveredMainClasses
 clean
+compile
+package
+clean
+compile
+package
+clean
+compile
+package
+clean

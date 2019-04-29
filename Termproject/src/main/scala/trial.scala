@@ -7,32 +7,19 @@ object trial {
     val inputFile = args(0)
     val outputFile = args(1)
 
-
     val spark = SparkSession.builder().appName("TrialByFire").getOrCreate()
 
-//    val conf = new SparkConf().setAppName("trial")
-    // Create the context
-//    val sc = new SparkContext(conf)
-    // Load our input data.
-//    val input =  sc.textFile(inputFile)
-
-
     val dataFrame = spark.read.json(inputFile)
-    val datesDF = dataFrame.select( "created_at")
-    val tweetDF = dataFrame.select( "text")
+    //if using shell instead of the above line use :
+    //    val dataFrame = spark.read.json("hdfs:///twitter/2016/01/01/00/30.json.bz2")
 
-    // Split up into words.
-    //    val words = input.flatMap(line => line.split(" "))
+    val columns = dataFrame.select("created_at", "text")
 
-
-//    val line = words.filter(words.contains("Apple"))
-
-    // Transform into word and count.
-//    val countRDD = words.map(word => (word, 1)).reduceByKey{case (x, y) => x + y}
-
+    val nnNulls = columns.filter(_(0)!= null)
+    val nonNulls = nnNulls.filter(_(1)!= null)
+    val filtTweets = nonNulls.filter(_(1).asInstanceOf[String].contains("Allstate"))
 
     // Save the word count back out to a text file, causing evaluation.
-    tweetDF.write.text(outputFile)
-    println(datesDF.toString())
+    filtTweets.write.csv(outputFile)
   }
 }
