@@ -17,9 +17,9 @@ object trial {
 
     val nnNulls = columns.filter(_(0)!= null)
     val nonNulls = nnNulls.filter(_(1)!= null)
-    val filtTweets = nonNulls.filter(_(1).asInstanceOf[String].contains("Allstate"))
+    val filtTweets = nonNulls.filter(_(1).asInstanceOf[String].contains("Apple"))
 
     // Save the word count back out to a text file, causing evaluation.
-    filtTweets.write.csv(outputFile)
+    if(filtTweets.count() > 0){    filtTweets.write.csv(outputFile) }
   }
 }
