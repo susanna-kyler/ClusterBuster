@@ -8,19 +8,37 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 object trial {
   val ROWS_AHEAD = 10
   val ROWS_BEHIND = 3
+  
   def main(args: Array[String]) {
     val tweetFile = args(0)
     val stockFile = args(1)
     val outputFile = args(2)
 
     val spark = SparkSession.builder().appName("TrialByFire").getOrCreate()
+    //if using shell instead of the below line, use :   val tweetData = spark.read.json("hdfs:///twitter/2016/01/01/00")
+    val tweetData = spark.read.json(tweetFile)
+    // getting company names
+    val nameData  = spark.read.csv("hdfs:///companys/comps2.csv")
+    // Only getting two components of a tweet
+    var tweetColumns = tweetData.select("created_at", "text")
+
+    // The below two lines are removing tweets that do not contain dates/text values
+    tweetColumns  = tweetColumns.filter(_(0)!= null).filter(_(1) !=null)
 
     val stocks = getStocks(spark, stockFile)
     val dataFrame = spark.read.json(tweetFile)
-    //if using shell instead of the above line use :
-    //    val dataFrame = spark.read.json("hdfs:///twitter/2016/01/01/00/30.json.bz2")
+  
+    val contained = udf{(tweet:String, name:String, nickName: String) => {
+      val tweetWords = tweet.split(" |\\.|#")
+      if(nickName!= null) {
+        val nicks = nickName.split(", ")
+        tweetWords.exists(_.contains(name)) || tweetWords.exists(word =>{ nicks.exists(n => n.equals(word))})
+      }
+      else  tweetWords.exists(_.contains(name))
+    }}
 
-    val columns = dataFrame.select("created_at", "text")
+
+    val dfs = tweetColumns.join( nameData, contained(tweetColumns("text"), nameData("_c1"),nameData("_c2")))
 
     if (stocks.count() > 0) {
       stocks.write.csv(outputFile)
@@ -58,4 +76,6 @@ object trial {
 
     withWindows
   }
+
+
 }
