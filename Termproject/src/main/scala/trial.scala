@@ -28,12 +28,6 @@ object trial {
 
     val dfs = tweetColumns.join( nameData, contained(tweetColumns("text"), nameData("_c1"),nameData("_c2")))
 
-    
-//    // Searching Remaining tweet data for lines containing a specific string
-//    val filtTweets = nonNulls.filter(_(1).asInstanceOf[String].contains("Apple"))
-
-//    // Save the word count back out to a text file, causing evaluation.
-//    if(filtTweets.count() > 0){    filtTweets.write.csv(outputFile) }
   }
 
 
