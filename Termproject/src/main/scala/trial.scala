@@ -1,3 +1,4 @@
+
 import org.apache.commons.math3.distribution.TDistribution
 import org.apache.spark._
 import org.apache.spark.sql.expressions._
@@ -15,21 +16,16 @@ object trial {
   def main(args: Array[String]) {
     val tweetFile = args(0)
     val stockFile = args(1)
-    val outputFile = args(2)
+    val outputFile = args(1)
 
     val spark = SparkSession.builder().appName("TrialByFire").getOrCreate()
     //if using shell instead of the below line, use :   val tweetData = spark.read.json("hdfs:///twitter/2016/01/01/00")
-    val tweetData = spark.read.json(tweetFile)
+    var tweetData = spark.read.json(tweetFile)
     // getting company names
     val nameData  = spark.read.csv("hdfs:///companys/comps2.csv")
     // Only getting two components of a tweet
-    var tweetColumns = tweetData.select("created_at", "text")
-
-    // The below two lines are removing tweets that do not contain dates/text values
-    tweetColumns  = tweetColumns.filter(_(0)!= null).filter(_(1) !=null)
-
-    val stocks = getStocks(spark, stockFile)
-    val dataFrame = spark.read.json(tweetFile)
+    tweetData = tweetData.select("created_at", "text")
+    tweetData  = tweetData.filter(_(0)!= null).filter(_(1) !=null)
 
     val contained = udf{(tweet:String, name:String, nickName: String) => {
       val tweetWords = tweet.split(" |\\.|#")
@@ -40,13 +36,25 @@ object trial {
       else  tweetWords.exists(_.contains(name))
     }}
 
+    var companyTweets = tweetData.join( nameData, contained(tweetData("text"), nameData("_c1"),nameData("_c2")))
 
-    val dfs = tweetColumns.join( nameData, contained(tweetColumns("text"), nameData("_c1"),nameData("_c2")))
+    // Function transforms the "created_at" column to = month day
+    val applyTime = udf{(timeUnit: String) => { timeUnit.substring(4,11) }}
 
+    companyTweets= companyTweets.withColumn("created_at", applyTime(tweetData("created_at")))
+    companyTweets.write.csv(outputFile)
+
+    val stocks = getStocks(spark, stockFile)
     if (stocks.count() > 0) {
       stocks.write.csv(outputFile)
     }
   }
+  
+
+  // Truncate dates
+  // x =map date,ID combo to count
+  // join x with stock data on ID and Date
+  // perform stats
 
   /**
     * Constructs a new DataFrame containing rows which have the following:
@@ -59,6 +67,7 @@ object trial {
     import spark.implicits._
     val csv = spark.read.format("csv").option("header", true).load(stockSource)
     // Convert file name to stock name
+
     //
     val mapName = udf((fileName: String) => fileName.substring(fileName.lastIndexOf('/')+1, fileName.indexOf('.')).toUpperCase)
     // Add a new column with the stock name
@@ -75,7 +84,6 @@ object trial {
       // Difference between previous average and the i-th away day
       withWindows = withWindows.withColumn("diff_"+i, computeDiff($"prev_avg", relative))
     }
-
 
     withWindows
   }
