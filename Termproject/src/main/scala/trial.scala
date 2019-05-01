@@ -86,10 +86,14 @@ object trial {
     */
   def getStocks(spark: SparkSession, stockSource: String) : DataFrame = {
     import spark.implicits._
-    val csv = spark.read.format("csv").option("header", true).load(stockSource)
-    // Convert file name to stock name
+    var csv = spark.read.format("csv").option("header", true).load(stockSource)
 
-    //
+    //filters out non 2016 years
+    val filterFor2016 = udf{(year: String) => { year.substring(0,4).equals("2016") }}
+    csv = csv.filter(filterFor2016(csv("Date")))
+
+
+    // Convert file name to stock name
     val mapName = udf((fileName: String) => fileName.substring(fileName.lastIndexOf('/')+1, fileName.indexOf('.')).toUpperCase)
     // Add a new column with the stock name
     var withWindows = csv.withColumn("Stock", mapName(input_file_name()))
