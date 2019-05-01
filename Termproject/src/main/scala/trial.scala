@@ -18,6 +18,7 @@ object trial {
     val outputFile = args(2)
 
     val spark = SparkSession.builder().appName("TrialByFire").getOrCreate()
+    import spark.implicits._
 
     val stocks = getStocks(spark, stockFile)
     val tweets = getTweetCounts(spark, tweetFile)
@@ -25,13 +26,13 @@ object trial {
     val joinStocksTweets = stocks.join(tweets, Seq("Date", "Stock"))
 
     // Write it out for our own sanity
-    joinStocksTweets.write.csv(outputFile)
+    //joinStocksTweets.write.csv(outputFile)
 
     // Test for correlations between the change in tweets and diff_0...diff_ROWS_AHEAD
     val stats = testColumns(joinStocksTweets, "change_in_tweets", DIFF_ROWS:_*)
-    for ((key, value) <- stats) {
-      println(s"Column: $key has a correlation coeff of ${value.correlation}, a p-value of ${value.pValue}, and ${value.dof} degrees of freedom")
-    }
+    // Create a DataFrame with a single column that contains an entry for each variable we tested and describes the stats values.
+    val answers = stats.map{case (key, value) => s"Column: $key has a correlation coeff of ${value.correlation}, a p-value of ${value.pValue}, and ${value.dof} degrees of freedom"}.toSeq.toDF()
+    answers.write.csv(outputFile)
 
     // Idk if this is needed, I've seen it in a few examples online
     spark.close()
