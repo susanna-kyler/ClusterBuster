@@ -1,14 +1,17 @@
+import org.apache.commons.math3.distribution.TDistribution
 import org.apache.spark._
 import org.apache.spark.sql.expressions._
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
-import org.apache.spark.SparkContext
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.ml.feature.VectorAssembler
+import org.apache.spark.ml.linalg.Matrix
+import org.apache.spark.ml.stat.{ChiSquareTest, Correlation}
+import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 
 object trial {
   val ROWS_AHEAD = 10
   val ROWS_BEHIND = 3
-  
+
   def main(args: Array[String]) {
     val tweetFile = args(0)
     val stockFile = args(1)
@@ -27,7 +30,7 @@ object trial {
 
     val stocks = getStocks(spark, stockFile)
     val dataFrame = spark.read.json(tweetFile)
-  
+
     val contained = udf{(tweet:String, name:String, nickName: String) => {
       val tweetWords = tweet.split(" |\\.|#")
       if(nickName!= null) {
@@ -57,7 +60,7 @@ object trial {
     val csv = spark.read.format("csv").option("header", true).load(stockSource)
     // Convert file name to stock name
     //
-    val mapName = udf((fileName: String) => fileName.substring(fileName.lastIndexOf('/')+1, fileName.indexOf('.')))
+    val mapName = udf((fileName: String) => fileName.substring(fileName.lastIndexOf('/')+1, fileName.indexOf('.')).toUpperCase)
     // Add a new column with the stock name
     var withWindows = csv.withColumn("Stock", mapName(input_file_name()))
 
@@ -77,5 +80,43 @@ object trial {
     withWindows
   }
 
+  case class Stats(pValue: Double, dof: Double, correlation: Double)
 
+  /**
+    * Performs a spearman correlation test to see if the independent variable is monotonically correlated with the specified dependent variables.
+    *
+    * @param data
+    * @param independent the column to use as the independent variable
+    * @param dependent sequence of potentially dependent columns
+    * @return a mapping of dependent variable => stats about the correlation
+    */
+  def testColumns(data: DataFrame, independent: String, dependent: String*) : Map[String, Stats] = {
+    val featureArray = (dependent ++ independent).toArray[String]
+    val assembler = new VectorAssembler()
+        .setInputCols(featureArray)
+        .setOutputCol("features")
+    val map = scala.collection.immutable.HashMap.newBuilder[String, Stats]
+    // Is there a way to avoid this pass over the data just to count it?
+    val count = data.count()
+    // Construct a correlation matrix between all variables.  We only care about the pairs of independent with a dependent variable though
+    val matrix = Correlation.corr(assembler.transform(data), "features",  "spearman").first().getAs[Matrix](0)
+    // We add the independent variable last
+    val independentIndex = featureArray.length - 1
+    // Look up the correlation coefficients
+    for ((col, i) <- featureArray.zipWithIndex) {
+      // If it's one we actually care about
+      if (col != independent) {
+        // Math from https://en.wikipedia.org/wiki/Spearman%27s_rank_correlation_coefficient#Determining_significance
+        val dof = count - 2
+        val rho =  matrix(independentIndex, i)
+        val t = rho * Math.sqrt(dof / (1 - (rho * rho)))
+        // This is based on Spark's implementation of a TTest using org.apache.commons.math3.stat.inference.TTest
+        val distribution = new TDistribution(null, dof)
+        // Isn't the p value the same regardless of whether it's negative.  Also, 2.0 because it's two sided?  Is that right?
+        val p = 2.0 * distribution.cumulativeProbability(-t)
+        map.+=((col, Stats(p, dof, rho)))
+      }
+    }
+    map.result()
+  }
 }
