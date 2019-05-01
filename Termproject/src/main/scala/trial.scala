@@ -1,7 +1,5 @@
 
 import org.apache.commons.math3.distribution.TDistribution
-import org.apache.spark._
-import org.apache.spark.sql.expressions._
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
 import org.apache.spark.ml.feature.VectorAssembler
@@ -16,7 +14,7 @@ object trial {
   def main(args: Array[String]) {
     val tweetFile = args(0)
     val stockFile = args(1)
-    val outputFile = args(1)
+    val outputFile = args(2)
 
     val spark = SparkSession.builder().appName("TrialByFire").getOrCreate()
     //if using shell instead of the below line, use :   val tweetData = spark.read.json("hdfs:///twitter/2016/01/01/00")
@@ -39,15 +37,38 @@ object trial {
     var companyTweets = tweetData.join( nameData, contained(tweetData("text"), nameData("_c1"),nameData("_c2")))
 
     // Function transforms the "created_at" column to = month day
-    val applyTime = udf{(timeUnit: String) => { timeUnit.substring(4,11) }}
+    val applyTime = udf{(timeUnit: String) => {
+      val m = timeUnit.substring(4,7)
+      val day = timeUnit.substring(9,11)
+      val month = m match{
+        case "Jan" => "01"
+        case "Feb" => "02"
+        case "Mar" => "03"
+        case "Apr" => "04"
+        case "May" => "05"
+        case "Jun" => "06"
+        case "Jul" => "07"
+        case "Aug" => "08"
+        case "Sep" => "09"
+        case "Oct" => "10"
+        case "Nov" => "11"
+        case "Dec" => "12"
+      }
+      "2016-"+month+"-"+day
+    }}
 
-    companyTweets= companyTweets.withColumn("created_at", applyTime(tweetData("created_at")))
-    companyTweets.write.csv(outputFile)
+    companyTweets= companyTweets.withColumn("created_at", applyTime(tweetData("created_at"))) // created_at, text, _c0, _c1, _c2
+//    companyTweets.write.csv(outputFile)
 
     val stocks = getStocks(spark, stockFile)
-    if (stocks.count() > 0) {
-      stocks.write.csv(outputFile)
-    }
+
+    //group by stock symbol and date
+    val grouped = companyTweets.groupBy("_c0","created_at" ).agg(count("*")).as("cnt")
+
+    val joinStocksTweets = stocks.join(grouped, grouped("created_at") <=> stocks("Date") && grouped("_c0") <=> stocks("Stock"), "left")
+
+    joinStocksTweets.write.csv(outputFile)
+
   }
   
 
@@ -99,7 +120,7 @@ object trial {
     * @return a mapping of dependent variable => stats about the correlation
     */
   def testColumns(data: DataFrame, independent: String, dependent: String*) : Map[String, Stats] = {
-    val featureArray = (dependent ++ independent).toArray[String]
+    val featureArray = (dependent ++ Seq(independent)).toArray[String]
     val assembler = new VectorAssembler()
         .setInputCols(featureArray)
         .setOutputCol("features")

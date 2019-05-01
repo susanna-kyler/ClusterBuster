@@ -4,7 +4,7 @@
 		module="termproject-build"
 		revision="0.1-SNAPSHOT"
 		status="integration"
-		publication="20190428172649"
+		publication="20190430220643"
 		e:sbtVersion="0.13" e:scalaVersion="2.10"
 	>
 		<description>
