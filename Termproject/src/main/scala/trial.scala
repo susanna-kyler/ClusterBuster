@@ -6,9 +6,10 @@ import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.linalg.Matrix
 import org.apache.spark.ml.stat.Correlation
 import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.storage.StorageLevel
 
 object trial {
-  val ROWS_AHEAD = 10
+  val ROWS_AHEAD = 5
   val ROWS_BEHIND = 1
   val DIFF_ROWS = (0 to ROWS_AHEAD).map("diff_"+_).toArray
 
@@ -27,12 +28,15 @@ object trial {
 
     // Write it out for our own sanity
     //joinStocksTweets.write.csv(outputFile)
+    joinStocksTweets.persist(StorageLevel.DISK_ONLY)
 
     // Test for correlations between the change in tweets and diff_0...diff_ROWS_AHEAD
     val stats = testColumns(joinStocksTweets, "change_in_tweets", DIFF_ROWS:_*)
     // Create a DataFrame with a single column that contains an entry for each variable we tested and describes the stats values.
     val answers = stats.map{case (key, value) => s"Column: $key has a correlation coeff of ${value.correlation}, a p-value of ${value.pValue}, and ${value.dof} degrees of freedom"}.toSeq.toDF()
     answers.write.csv(outputFile)
+
+    joinStocksTweets.unpersist()
 
     // Idk if this is needed, I've seen it in a few examples online
     spark.close()
