@@ -9,7 +9,7 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 
 object trial {
   val ROWS_AHEAD = 10
-  val ROWS_BEHIND = 3
+  val ROWS_BEHIND = 1
   val DIFF_ROWS = (0 to ROWS_AHEAD).map("diff_"+_).toArray
 
   def main(args: Array[String]) {
@@ -83,7 +83,7 @@ object trial {
     // Function transforms the "created_at" column to = YYYY-MM-dd
     val applyTime = udf{(timeUnit: String) => {
       val m = timeUnit.substring(4,7)
-      val day = timeUnit.substring(9,11)
+      val day = timeUnit.substring(8,10)
       val month = m match{
         case "Jan" => "01"
         case "Feb" => "02"
@@ -111,14 +111,18 @@ object trial {
     val window = Window.partitionBy(grouped("Stock")).orderBy(grouped("created_at"))
     val previousDay = lag(grouped("tweet_count"), 1).over(window)
 
+    // Filter out NaN and Infinity, caused by having zeros in the dataset
+    val isReal = udf((value: Double) => !value.isNaN && !value.isInfinite)
+
     // Compute percentage change from the previous day for each company.  If they had zero tweets on either day this will be NaN
-    grouped = grouped.withColumn("change_in_tweets", grouped("tweet_count") - previousDay)
-    grouped = grouped.filter(grouped("change_in_tweets").isNotNull)
+    grouped = grouped.withColumn("change_in_tweets", grouped("tweet_count") / previousDay)
+    grouped = grouped.filter(isReal(grouped("change_in_tweets")))
     // Rename the column to match the stock one.  Makes the join easier
     grouped = grouped.withColumnRenamed("created_at", "Date")
 
     grouped
   }
+
   /**
     * Constructs a new DataFrame containing rows which have the following:
     * Stock, Date, Open, High, Low, Close, Volume, OpenInt, diff_0...diff_10, prev_avg
