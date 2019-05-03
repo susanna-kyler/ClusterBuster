@@ -6,6 +6,7 @@ import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.linalg.Matrix
 import org.apache.spark.ml.stat.Correlation
 import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.functions.broadcast
 import org.apache.spark.storage.StorageLevel
 
 object trial {
@@ -24,16 +25,17 @@ object trial {
     val stocks = getStocks(spark, stockFile)
     val tweets = getTweetCounts(spark, tweetFile)
     // Join the stocks with the tweet counts.  Gives us Stock, created_at, Date, change_in_tweets, tweet_count, and all the stock fields
-    val joinStocksTweets = stocks.join(tweets, Seq("Date", "Stock"))
+    val joinStocksTweets = tweets.join(stocks, Seq("Date", "Stock"))
 
-    // Write it out for our own sanity
-    //joinStocksTweets.write.csv(outputFile)
+    //
     joinStocksTweets.persist(StorageLevel.DISK_ONLY)
 
     // Test for correlations between the change in tweets and diff_0...diff_ROWS_AHEAD
     val stats = testColumns(joinStocksTweets, "change_in_tweets", DIFF_ROWS:_*)
     // Create a DataFrame with a single column that contains an entry for each variable we tested and describes the stats values.
-    val answers = stats.map{case (key, value) => s"Column: $key has a correlation coeff of ${value.correlation}, a p-value of ${value.pValue}, and ${value.dof} degrees of freedom"}.toSeq.toDF()
+    val answers = stats.map{case (key, value) => s"Column: $key has a correlation coeff of ${value.correlation}, a p-value of ${value.pValue}, and ${value.dof} degrees of freedom"}.toSeq
+      .toDF()
+      .repartition(1) // So that we get a single output file
     answers.write.csv(outputFile)
 
     joinStocksTweets.unpersist()
@@ -82,7 +84,7 @@ object trial {
     }}
 
     // Join the tweets with the companies that they mention using our custom matching function
-    var companyTweets = tweetData.join( nameData, mentionsCompany(tweetData("text"), nameData("Name"),nameData("Nicknames")))
+    var companyTweets = tweetData.join( broadcast(nameData), mentionsCompany(tweetData("text"), nameData("Name"),nameData("Nicknames")))
 
     // Function transforms the "created_at" column to = YYYY-MM-dd
     val applyTime = udf{(timeUnit: String) => {
@@ -206,10 +208,11 @@ object trial {
         val dof = count - 2
         val rho =  matrix(independentIndex, i)
         val t = rho * Math.sqrt(dof / (1 - (rho * rho)))
-        // This is based on Spark's implementation of a TTest using org.apache.commons.math3.stat.inference.TTest
         val distribution = new TDistribution(null, dof)
-        // Isn't the p value the same regardless of whether it's negative.  Also, 2.0 because it's two sided?  Is that right?
-        val p = 2.0 * distribution.cumulativeProbability(-t)
+        // Two sided t-test.
+        // distribution.cumulativeProbability(t) is the chance that a random number in the T distribution is less than t
+        // Our p-value is 1 minus that, times 2 because it's two-sided
+        val p = 2.0 * (1 - distribution.cumulativeProbability(t))
         map.+=((col, Stats(p, dof, rho)))
       }
     }
